@@ -40,6 +40,12 @@ async function run() {
        
        
     })
+    app.post('/doctorInfo', async(req,res)=>{
+        const addBooking = req.body 
+        const result = await doctorServiceCollection.insertOne(addBooking)
+        res.send(result);
+        console.log(result)
+    })
 
     
 
@@ -85,7 +91,7 @@ async function run() {
                 return res.status(404).send({ message: "Doctor not found" });
             }
     
-            console.log("Query Result:", result);
+            
             res.send(result);
         } catch (error) {
             console.error("Database query error:", error.message);
@@ -95,12 +101,34 @@ async function run() {
     
 
     // Doctor Booked and Post Areqa
-    app.post("/doctorBooking", async(req,res)=>{
-        const cursor = req.body 
-        const bookingResult = await bookingCollection.insertOne(cursor)
-        res.send(bookingResult);
-        
-    })
+    app.post("/doctorBooking", async (req, res) => {
+        const newBooking = req.body;
+        const { startDate, endDate, doctorId } = newBooking;
+    
+        try {
+            // Prothome oi doctor er jei date range startDate theke endDate, sheta already ache kina check kora hocche
+            const existingBooking = await bookingCollection.findOne({
+                doctorId: doctorId,
+                $or: [
+                    { startDate: { $lte: endDate, $gte: startDate } },
+                    { endDate: { $lte: endDate, $gte: startDate } }
+                ]
+            });
+    
+            // Jodi booking thake, tahole error response pathano hobe
+            if (existingBooking) {
+                return res.status(409).send({ error: "This time slot is already booked. Please choose a different time." });
+            }
+    
+            // Jodi booking na thake, tahole new booking insert kora hobe
+            const bookingResult = await bookingCollection.insertOne(newBooking);
+            res.send(bookingResult);
+        } catch (error) {
+            console.error("Error creating booking:", error);
+            res.status(500).send({ error: "Failed to create booking" });
+        }
+    });
+    
 
     app.get('/doctorBooking', async(req,res)=>{
         const cursor = bookingCollection.find()
@@ -132,7 +160,7 @@ async function run() {
       
     
 
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
