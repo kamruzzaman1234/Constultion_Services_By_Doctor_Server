@@ -11,7 +11,9 @@ require('dotenv').config()
 
 app.use(cors({
     origin: [
-        'http://localhost:5173'
+        'http://localhost:5173',
+        'https://service-by-doctor-project.web.app',
+        'https://service-by-doctor-project.firebaseapp.com'
     ],
     credentials: true
 }))
@@ -44,6 +46,11 @@ const verifyToken = async(req, res, next)=>{
       
    
   }
+const cookieOptions = {
+  httpOnly: true,
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+  secure: process.env.NODE_ENV === "production" ? true : false
+}
 
 app.get('/', (req, res)=>{
     res.send("Hello Server !! Welcome to My Server Site")
@@ -77,10 +84,7 @@ async function run() {
            {expiresIn: '2h'})
            
           res.
-        cookie('token',  token, {
-          httpOnly: true,
-          secure: false
-        })
+        cookie('token',  token, cookieOptions)
         .send({success: true})
       })
 
