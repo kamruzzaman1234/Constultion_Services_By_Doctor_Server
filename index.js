@@ -69,7 +69,54 @@ async function run() {
     const doctorServiceCollection = client.db('doctor_service_booking').collection('doctor_info')
     const bookingCollection = client.db('doctor_service_booking').collection('doctorBooked')
 
+    //  Token Generate
+    app.post('/jwt', logger, (req, res)=>{
+        const user = req.body 
+        console.log(user)
+        const token = jwt.sign(user, process.env.ACCESS_TOKEN_KEY,
+           {expiresIn: '2h'})
+           
+          res.
+        cookie('token',  token, {
+          httpOnly: true,
+          secure: false
+        })
+        .send({success: true})
+      })
+
+      // Show All Data with Pagination
+app.get('/doctorInfo', async (req, res) => {
   
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 4; 
+  const skip = (page - 1) * limit; 
+
+  try {
+      const cursor = doctorServiceCollection.find().skip(skip).limit(limit); 
+      const result = await cursor.toArray();
+      
+      
+      const totalItems = await doctorServiceCollection.countDocuments();
+      const totalPages = Math.ceil(totalItems / limit); 
+
+      res.send({
+          data: result,
+          currentPage: page,
+          totalPages: totalPages,
+          totalItems: totalItems
+      });
+  } catch (error) {
+      console.error("Error fetching paginated data:", error);
+      res.status(500).send({ error: "Internal server error" });
+  }
+});
+
+
+
+
+
+
+    
 
     // Show All Data
     app.get('/doctorInfo', async(req,res)=>{
