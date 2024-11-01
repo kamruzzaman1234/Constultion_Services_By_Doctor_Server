@@ -84,6 +84,16 @@ async function run() {
         .send({success: true})
       })
 
+
+      // Show All Data
+      app.get('/doctorInfo', logger, async(req,res)=>{
+          const cursor = doctorServiceCollection.find()
+          const result = await cursor.toArray()
+          res.send(result)
+         
+         
+      })
+
       // Show All Data with Pagination
 app.get('/doctorInfo', async (req, res) => {
   
@@ -111,33 +121,13 @@ app.get('/doctorInfo', async (req, res) => {
   }
 });
 
-
-
-
-
-
     
-
-    // Show All Data
-    app.get('/doctorInfo', async(req,res)=>{
-        const cursor = doctorServiceCollection.find()
-        const result = await cursor.toArray()
-        res.send(result)
-       
-       
-    })
     app.post('/doctorInfo', async(req,res)=>{
         const addBooking = req.body 
         const result = await doctorServiceCollection.insertOne(addBooking)
         res.send(result);
         console.log(result)
     })
-
-    
-
-     
-
-
 
     app.get('/doctorInfo/:id', async (req, res) => {
         const id = req.params.id;
@@ -192,7 +182,7 @@ app.get('/doctorInfo', async (req, res) => {
         const { startDate, endDate, doctorId } = newBooking;
     
         try {
-            // Prothome oi doctor er jei date range startDate theke endDate, sheta already ache kina check kora hocche
+            
             const existingBooking = await bookingCollection.findOne({
                 doctorId: doctorId,
                 $or: [
@@ -201,7 +191,7 @@ app.get('/doctorInfo', async (req, res) => {
                 ]
             });
     
-            // Jodi booking thake, tahole error response pathano hobe
+            
             if (existingBooking) {
                 return res.status(409).send({ error: "This time slot is already booked. Please choose a different time." });
             }
@@ -216,7 +206,7 @@ app.get('/doctorInfo', async (req, res) => {
     });
     
 
-    app.get('/doctorBooking', async(req,res)=>{
+    app.get('/doctorBooking', logger, verifyToken, async(req,res)=>{
         const cursor = bookingCollection.find()
         const result = await cursor.toArray()
         res.send(result)
@@ -230,11 +220,11 @@ app.get('/doctorInfo', async (req, res) => {
     })
 
     // Patch
-    app.patch('/doctorBooking/:id', async(req,res)=>{
+    app.patch('/doctorBooking/:id', logger, verifyToken, async(req,res)=>{
         const id = req.params.id
         const filter = {_id: new ObjectId(id)}
         const updateBooking = req.body 
-        console.log(updateBooking)
+       
         const updateDoc = {
           $set: {
             status: updateBooking.status
