@@ -1,13 +1,49 @@
 const express = require("express")
 const app = express()
 const cors = require('cors')
+const jwt = require('jsonwebtoken')
+const cookieParser = require('cookie-parser')
 const PORT = process.env.PORT || 6007
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 // import { ObjectId } from "mongodb";
 require('dotenv').config()
 
+
+app.use(cors({
+    origin: [
+        'http://localhost:5173'
+    ],
+    credentials: true
+}))
 app.use(express.json())
-app.use(cors())
+app.use(cookieParser())
+
+const logger = async(req,res,next)=>{
+    console.log('Called', req.host, req.originalUrl)
+    next()
+}
+
+const verifyToken = async(req, res, next)=>{
+    const token = req.cookies?.token
+    console.log("Value of the token is ",token)
+      if(!token){
+        return res.status(401).send({
+          message: "not authorized"
+        })
+      }
+  
+      jwt.verify(token, process.env.ACCESS_JSON_TOKEN, (err, decoded)=>{
+          if(err){
+            console.log(err)
+            return res.status(401).send({message: 'un authorize'})
+          }
+          console.log('Value in the token is', decoded)
+          req.user = decoded
+           next()
+      })
+      
+   
+  }
 
 app.get('/', (req, res)=>{
     res.send("Hello Server !! Welcome to My Server Site")
@@ -33,6 +69,9 @@ async function run() {
     const doctorServiceCollection = client.db('doctor_service_booking').collection('doctor_info')
     const bookingCollection = client.db('doctor_service_booking').collection('doctorBooked')
 
+  
+
+    // Show All Data
     app.get('/doctorInfo', async(req,res)=>{
         const cursor = doctorServiceCollection.find()
         const result = await cursor.toArray()
