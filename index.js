@@ -20,6 +20,14 @@ app.use(cors({
 app.use(express.json())
 app.use(cookieParser())
 
+const corsOptions = {
+  origin: 'http://localhost:5173', // Change this to your frontend's URL
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type'],
+};
+app.use(cors(corsOptions));
+
+
 const logger = async(req,res,next)=>{
     console.log('Called', req.host, req.originalUrl)
     next()
@@ -27,7 +35,7 @@ const logger = async(req,res,next)=>{
 
 const verifyToken = async(req, res, next)=>{
     const token = req.cookies?.token
-    console.log("Value of the token is ",token)
+    console.log("Value of the token is ", token)
       if(!token){
         return res.status(401).send({
           message: "not authorized"
@@ -75,13 +83,14 @@ async function run() {
     // Send a ping to confirm a successful connection
     const doctorServiceCollection = client.db('doctor_service_booking').collection('doctor_info')
     const bookingCollection = client.db('doctor_service_booking').collection('doctorBooked')
+    const contactCollection = client.db('doctor_service_booking').collection('contactInfo')
 
     //  Token Generate
     app.post('/jwt', logger, (req, res)=>{
         const user = req.body 
         console.log(user)
         const token = jwt.sign(user, process.env.ACCESS_TOKEN_KEY,
-           {expiresIn: '2h'})
+           {expiresIn: '1h'})
            
           res.
         cookie('token',  token, cookieOptions)
@@ -99,7 +108,7 @@ async function run() {
       })
 
       // Show All Data with Pagination
-app.get('/doctorInfo', async (req, res) => {
+     app.get('/doctorInfo', async (req, res) => {
   
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 4; 
@@ -114,6 +123,8 @@ app.get('/doctorInfo', async (req, res) => {
       const totalPages = Math.ceil(totalItems / limit); 
 
       res.send({
+          image:image,
+
           data: result,
           currentPage: page,
           totalPages: totalPages,
@@ -125,7 +136,13 @@ app.get('/doctorInfo', async (req, res) => {
   }
 });
 
-    
+    // Post doctor Info
+    app.post('/contact', async(req,res)=>{
+       const addContact = req.body 
+       const result = await contactCollection.insertOne(addContact)
+       console.log(result)
+       res.send(result)
+    })
     app.post('/doctorInfo', async(req,res)=>{
         const addBooking = req.body 
         const result = await doctorServiceCollection.insertOne(addBooking)
@@ -179,65 +196,83 @@ app.get('/doctorInfo', async (req, res) => {
         }
     });
     
+    app.get("/doctorBooking", async (req, res) => {
+      const result = await bookingCollection.find().toArray();
+      res.send(result);
+      console.log("Your result is ", result)
+    });
 
     // Doctor Booked and Post Areqa
     app.post("/doctorBooking", async (req, res) => {
-        const newBooking = req.body;
-        const { startDate, endDate, doctorId } = newBooking;
-    
-        try {
-            
-            const existingBooking = await bookingCollection.findOne({
-                doctorId: doctorId,
-                $or: [
-                    { startDate: { $lte: endDate, $gte: startDate } },
-                    { endDate: { $lte: endDate, $gte: startDate } }
-                ]
-            });
-    
-            
-            if (existingBooking) {
-                return res.status(409).send({ error: "This time slot is already booked. Please choose a different time." });
-            }
-    
-            // Jodi booking na thake, tahole new booking insert kora hobe
-            const bookingResult = await bookingCollection.insertOne(newBooking);
-            res.send(bookingResult);
-        } catch (error) {
-            console.error("Error creating booking:", error);
-            res.status(500).send({ error: "Failed to create booking" });
-        }
-    });
-    
-
-    app.get('/doctorBooking', logger, verifyToken, async(req,res)=>{
-        const cursor = bookingCollection.find()
-        const result = await cursor.toArray()
-        res.send(result)
-    })
-
-    app.delete('/doctorBooking/:id', async(req,res)=>{
-        const id = req.params.id
-        const query = {_id: new ObjectId(id)}
-        const result = await bookingCollection.deleteOne(query)
-        res.send(result)
-    })
-
-    // Patch
-    app.patch('/doctorBooking/:id', logger, verifyToken, async(req,res)=>{
-        const id = req.params.id
-        const filter = {_id: new ObjectId(id)}
-        const updateBooking = req.body 
-       
-        const updateDoc = {
-          $set: {
-            status: updateBooking.status
+      const newBooking = req.body;
+      const { startDate, endDate, doctorId } = newBooking;
+  
+      try {
+          
+          const existingBooking = await bookingCollection.findOne({
+              doctorId: doctorId,
+              $or: [
+                  { startDate: { $lte: endDate, $gte: startDate } },
+                  { endDate: { $lte: endDate, $gte: startDate } }
+              ]
+          });
+  
+          
+          if (existingBooking) {
+              return res.status(409).send({ error: "This time slot is already booked. Please choose a different time." });
           }
-        }
-        const result = await bookingCollection.updateOne(filter, updateDoc)
-        res.send(result)
-      })
+  
+          // Jodi booking na thake, tahole new booking insert kora hobe
+          const bookingResult = await bookingCollection.insertOne(newBooking);
+          res.send(bookingResult);
+      } catch (error) {
+          console.error("Error creating booking:", error);
+          res.status(500).send({ error: "Failed to create booking" });
+      }
+  });
+
+
+app.delete('/doctorBooking/:id', async(req,res)=>{
+  const id = req.params.id
+  const query = {_id: new ObjectId(id)}
+  const result = await bookingCollection.deleteOne(query)
+  res.send(result)
+})
+    
+    
+    
+
+app.patch("/doctorBooking/:id", logger, verifyToken, async (req, res) => {
+  const id = req.params.id;
+  const filter = { _id: new ObjectId(id) };
+  const updateDoc = { $set: { status: req.body.status } };
+  const result = await bookingCollection.updateOne(filter, updateDoc);
+  res.send(result);
+});
+
+// Delete
+app.delete("/doctorBooking/:id", async (req, res) => {
+  const id = req.params.id;
+  const result = await bookingCollection.deleteOne({ _id: new ObjectId(id) });
+  res.send(result);
+});
+
+   
       
+      // 
+      // POST route for booking an appointment
+app.post('/book-appointment', async (req, res) => {
+  const { doctorId, patientName, date, time } = req.body;
+
+  try {
+    const newAppointment = new Appointment({ doctorId, patientName, date, time });
+    await newAppointment.save();
+    res.status(201).json({ message: 'Appointment booked successfully' });
+  } catch (error) {
+    console.error('Error booking appointment:', error);
+    res.status(500).json({ message: 'Failed to book appointment' });
+  }
+});
     
 
     // await client.db("admin").command({ ping: 1 });
