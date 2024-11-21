@@ -20,12 +20,7 @@ app.use(cors({
 app.use(express.json())
 app.use(cookieParser())
 
-const corsOptions = {
-  origin: 'http://localhost:5173', // Change this to your frontend's URL
-  methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type'],
-};
-app.use(cors(corsOptions));
+
 
 
 const logger = async(req,res,next)=>{
